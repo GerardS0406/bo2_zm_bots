@@ -7,6 +7,8 @@ init()
 {
 	bot_set_skill();
 	flag_wait("initial_blackscreen_passed");
+	if(!isdefined(level.using_bot_weapon_logic))
+		level.using_bot_weapon_logic = 1;
 	bot_amount = GetDvarIntDefault("bo2_zm_bots_count", 0);
 	if(bot_amount > (8-get_players().size))
 		bot_amount = 8 - get_players().size;
@@ -57,12 +59,14 @@ spawn_bot()
 {
 	bot = addtestclient();
 	bot waittill("spawned_player");
-	bot maps/mp/zombies/_zm_laststand::bleed_out();
+	bot thread maps/mp/zombies/_zm::spawnspectator();
 	if ( isDefined( bot ) )
 	{
 		bot.pers[ "isBot" ] = 1;
 		bot thread onspawn();
 	}
+	wait 1;
+	bot [[ level.spawnplayer ]]();
 }
 
 bot_spawn()
@@ -118,6 +122,7 @@ bot_main()
 
 	self thread bot_wakeup_think();
 	self thread bot_damage_think();
+	self thread bot_give_ammo();
 	for ( ;; )
 	{
 		self waittill( "wakeup", damage, attacker, direction );
@@ -130,12 +135,94 @@ bot_main()
 			self bot_combat_think( damage, attacker, direction );
 			self bot_update_follow_host();
 			self bot_update_lookat();
+			if(is_true(level.using_bot_weapon_logic))
+			{
+				self bot_buy_wallbuy();
+				self bot_pack_gun();
+			}
+			//self bot_buy_box();
 			//HIGH PRIORITY: PICKUP POWERUP
 			//WHEN GIVING BOTS WEAPONS, YOU MUST USE setspawnweapon() FUNCTION!!!
 			//ADD OTHER NON-COMBAT RELATED TASKS HERE (BUYING GUNS, CERTAIN GRIEF MECHANICS)
 			//ANYTHING THAT CAN BE DONE WHILE THE BOT IS NOT THREATENED BY A ZOMBIE
 		}	
 	}
+}
+
+bot_pack_gun()
+{
+	if(level.round_number <= 1)
+		return;
+	if(!self bot_should_pack())
+		return;
+	machines = GetEntArray("zombie_vending", "targetname");
+	foreach(pack in machines)
+	{
+		if(pack.script_noteworthy != "specialty_weapupgrade")
+			continue;
+		if(Distance(pack.origin, self.origin) < 400 && self.score >= 5000 && nodescanpath( bot_nearest_node(self.origin), bot_nearest_node(pack.origin)))
+		{
+			self maps/mp/zombies/_zm_score::minus_to_player_score(5000);
+			weapon = self GetCurrentWeapon();
+			upgrade_name = maps/mp/zombies/_zm_weapons::get_upgrade_weapon( weapon );
+			self TakeAllWeapons();
+			self GiveWeapon(upgrade_name);
+			self SetSpawnWeapon(upgrade_name);
+			return;
+		}
+	}
+}
+
+bot_buy_wallbuy()
+{
+	self endon("death");
+	self endon("disconnect");
+	level endon("end_game");
+	if(self hasgoal("weaponBuy"))
+		return;
+	if(self HasWeapon("mp5k_zm") || self HasWeapon("pdw57_zm"))
+		return;
+	weapon = self GetCurrentWeapon();
+	weaponToBuy = undefined;
+	wallbuys = array_randomize(level._spawned_wallbuys);
+	foreach(wallbuy in wallbuys)
+	{
+		if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.zombie_weapon_upgrade, weapon) && nodescanpath( bot_nearest_node(self.origin), bot_nearest_node(wallbuy.origin)) && weapon != wallbuy.zombie_weapon_upgrade)
+		{
+			weaponToBuy = wallbuy;
+			break;
+		}
+	}
+	if(!isdefined(weaponToBuy))
+		return;
+	self AddGoal(weaponToBuy.origin, 75, 2, "weaponBuy");
+	while(!self AtGoal("weaponBuy") && !Distance(self.origin, weaponToBuy.origin) < 100)
+	{
+		wait 1;
+	}
+	self cancelgoal("weaponBuy");
+	self maps/mp/zombies/_zm_score::minus_to_player_score( weaponToBuy.trigger_stub.cost );
+	self TakeAllWeapons();
+	self GiveWeapon(weaponToBuy.zombie_weapon_upgrade);
+	self SetSpawnWeapon(weaponToBuy.zombie_weapon_upgrade);
+	IPrintLn("Bot Bought Weapon");
+	
+}
+
+bot_should_pack()
+{
+	if(maps/mp/zombies/_zm_weapons::can_upgrade_weapon(self GetCurrentWeapon()))
+		return 1;
+	return 0;
+}
+
+bot_best_gun(buyingweapon, currentweapon)
+{
+	if(buyingweapon == "mp5_zm" || buyingweapon == "pdw57_zm")
+		return 1;
+	if(maps/mp/zombies/_zm_weapons::get_weapon_cost(buyingweapon) > maps/mp/zombies/_zm_weapons::get_weapon_cost(currentweapon))
+		return 1;
+	return 0;
 }
 
 bot_wakeup_think()
@@ -161,6 +248,24 @@ bot_damage_think()
 		self waittill( "damage", damage, attacker, direction, point, mod, unused1, unused2, unused3, weapon, flags, inflictor );
 		self.bot.attacker = attacker;
 		self notify( "wakeup", damage, attacker, direction );
+	}
+}
+
+bot_give_ammo()
+{
+	self endon( "disconnect" );
+	self endon( "death" );
+	level endon( "game_ended" );
+	for(;;)
+	{
+		primary_weapons = self GetWeaponsListPrimaries();
+		j=0;
+		while(j<primary_weapons.size)
+		{
+			self GiveMaxAmmo(primary_weapons[ j ]);
+			j++;
+		}
+		wait 1;
 	}
 }
 
