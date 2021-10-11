@@ -42,7 +42,7 @@ bot_set_skill()
 	setdvar( "bot_SprintDistance", "256" );
 }
 
-bot_get_closest_enemy( origin ) //checked matches cerberus output
+bot_get_closest_enemy( origin )
 {
 	enemies = get_round_enemy_array();
 	enemies = arraysort( enemies, origin );
@@ -72,7 +72,7 @@ bot_spawn()
 	self thread bot_main();
 }
 
-bot_spawn_init() //checked matches cerberus output
+bot_spawn_init()
 {
 	self SwitchToWeapon("m1911_zm");
 	self SetSpawnWeapon("m1911_zm");
@@ -148,7 +148,7 @@ bot_wakeup_think()
 	}
 }
 
-bot_damage_think() //checked changed to match cerberus output
+bot_damage_think()
 {
 	self notify( "bot_damage_think" );
 	self endon( "bot_damage_think" );
@@ -202,7 +202,7 @@ bot_update_follow_host()
 	//	self AddGoal()	
 }
 
-bot_update_lookat() //checked changed to match cerberus output
+bot_update_lookat()
 {
 	path = 0;
 	if ( isDefined( self getlookaheaddir() ) )
@@ -226,7 +226,7 @@ bot_update_lookat() //checked changed to match cerberus output
 	}
 }
 
-bot_get_look_at() //checked matches cerberus output
+bot_get_look_at()
 {
 	enemy = bot_get_closest_enemy( self.origin );
 	if ( isDefined( enemy ) )
@@ -264,7 +264,7 @@ bot_update_weapon()
 	}
 }
 
-bot_update_failsafe() //checked partially changed to match cerberus output //did not change while loop to foreach to prevent infinite continue loop bug
+bot_update_failsafe()
 {
 	time = getTime();
 	if ( ( time - self.spawntime ) < 7500 )
@@ -324,7 +324,7 @@ bot_update_failsafe() //checked partially changed to match cerberus output //did
 	self.bot.previous_origin = self.origin;
 }
 
-bot_failsafe_node_valid( nearest, node ) //checked changed to match cerberus output
+bot_failsafe_node_valid( nearest, node )
 {
 	if ( isDefined( node.script_noteworthy ) )
 	{
@@ -367,7 +367,7 @@ bot_failsafe_node_valid( nearest, node ) //checked changed to match cerberus out
 	return 0;
 }
 
-bot_nearest_node( origin ) //checked matches cerberus output
+bot_nearest_node( origin )
 {
 	node = getnearestnode( origin );
 	if ( isDefined( node ) )
