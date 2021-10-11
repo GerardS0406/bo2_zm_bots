@@ -44,6 +44,7 @@ bot_combat_think( damage, attacker, direction )
 			return;
 		}
 		//ADD OTHER COMBAT TASKS HERE.
+		//CREATE LOW PRIORITY PICKUP POWERUP TASK
 		self bot_combat_main();
 		wait 0.05; //fu difficulty
 	}
