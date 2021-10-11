@@ -130,6 +130,7 @@ bot_main()
 			self bot_combat_think( damage, attacker, direction );
 			self bot_update_follow_host();
 			self bot_update_lookat();
+			//HIGH PRIORITY: PICKUP POWERUP
 			//ADD OTHER NON-COMBAT RELATED TASKS HERE (BUYING GUNS, CERTAIN GRIEF MECHANICS)
 			//ANYTHING THAT CAN BE DONE WHILE THE BOT IS NOT THREATENED BY A ZOMBIE
 		}	
