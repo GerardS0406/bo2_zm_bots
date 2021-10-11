@@ -44,13 +44,12 @@ bot_combat_think( damage, attacker, direction )
 			return;
 		}
 		//ADD OTHER COMBAT TASKS HERE.
-		//CREATE LOW PRIORITY PICKUP POWERUP TASK
 		self bot_combat_main();
 		wait 0.05; //fu difficulty
 	}
 }
 
-bot_combat_main()
+bot_combat_main() //checked partially changed to match cerberus output changed at own discretion
 {
 	weapon = self getcurrentweapon();
 	currentammo = self getweaponammoclip( weapon ) + self getweaponammostock( weapon );
@@ -100,7 +99,7 @@ bot_combat_main()
 	}
 }
 
-bot_combat_dead( damage )
+bot_combat_dead( damage ) //checked matches cerberus output
 {
 	wait 0.1;
 	self allowattack( 0 );
@@ -108,7 +107,7 @@ bot_combat_dead( damage )
 	self bot_clear_enemy();
 }
 
-bot_should_hip_fire()
+bot_should_hip_fire() //checked matches cerberus output
 {
 	enemy = self.bot.threat.entity;
 	weapon = self getcurrentweapon();
@@ -156,7 +155,7 @@ bot_should_hip_fire()
 	return distsq < ( distcheck * distcheck );
 }
 
-bot_patrol_near_enemy( damage, attacker, direction )
+bot_patrol_near_enemy( damage, attacker, direction ) //checked matches cerberus output
 {
 	if ( isDefined( attacker ) )
 	{
@@ -193,7 +192,7 @@ bot_patrol_near_enemy( damage, attacker, direction )
 	}
 }
 
-bot_lookat_entity( entity )
+bot_lookat_entity( entity ) //checked matches cerberus output
 {
 	if ( isplayer( entity ) && entity getstance() != "prone" )
 	{
@@ -215,7 +214,7 @@ bot_lookat_entity( entity )
 	}
 }
 
-bot_update_lookat( origin, frac )
+bot_update_lookat( origin, frac ) //checked matches cerberus output
 {
 	angles = vectorToAngles( origin - self.origin );
 	right = anglesToRight( angles );
@@ -237,7 +236,7 @@ bot_update_lookat( origin, frac )
 	self lookat( end );
 }
 
-bot_update_aim( frames )
+bot_update_aim( frames ) //checked matches cerberus output
 {
 	ent = self.bot.threat.entity;
 	prediction = self predictposition( ent, frames );
@@ -251,7 +250,7 @@ bot_update_aim( frames )
 	return torso;
 }
 
-bot_on_target( aim_target, radius )
+bot_on_target( aim_target, radius ) //checked matches cerberus output
 {
 	angles = self getplayerangles();
 	forward = anglesToForward( angles );
@@ -265,12 +264,12 @@ bot_on_target( aim_target, radius )
 	return 0;
 }
 
-bot_get_aim_error()
+bot_get_aim_error() //checked changed at own discretion
 {
 	return 1;
 }
 
-bot_has_lmg()
+bot_has_lmg() //checked changed at own discretion
 {
 	if ( bot_has_weapon_class( "mg" ) )
 	{
@@ -279,7 +278,7 @@ bot_has_lmg()
 	return 0;
 }
 
-bot_has_weapon_class( class )
+bot_has_weapon_class( class ) //checked changed at own discretion
 {
 	if ( self isreloading() )
 	{
@@ -297,7 +296,7 @@ bot_has_weapon_class( class )
 	return 0;
 }
 
-bot_can_reload()
+bot_can_reload() //checked changed to match cerberus output
 {
 	weapon = self getcurrentweapon();
 	if ( weapon == "none" )
@@ -315,7 +314,7 @@ bot_can_reload()
 	return 1;
 }
 
-bot_best_enemy()
+bot_best_enemy() //checked partially changed to match cerberus output did not change while loop to foreach see github for more info
 {
 	enemies = get_round_enemy_array();
 	enemies = arraysort( enemies, self.origin );
@@ -361,7 +360,7 @@ bot_weapon_ammo_frac() //checked matches cerberus output
 	return current / total;
 }
 
-bot_select_weapon()
+bot_select_weapon() //checked partially changed to match cerberus output did not change while loop to foreach see github for more info
 {
 	if ( self isthrowinggrenade() || self isswitchingweapons() || self isreloading() )
 	{
@@ -441,7 +440,7 @@ bot_select_weapon()
 	}
 }
 
-bot_can_do_combat()
+bot_can_do_combat() //checked matches cerberus output
 {
 	if ( self ismantling() || self isonladder() )
 	{
@@ -450,7 +449,7 @@ bot_can_do_combat()
 	return 1;
 }
 
-bot_dot_product( origin )
+bot_dot_product( origin ) //checked matches cerberus output
 {
 	angles = self getplayerangles();
 	forward = anglesToForward( angles );
@@ -460,18 +459,18 @@ bot_dot_product( origin )
 	return dot;
 }
 
-threat_should_ignore( entity )
+threat_should_ignore( entity ) //checked matches cerberus output
 {
 	return 0;
 }
 
-bot_clear_enemy()
+bot_clear_enemy() //checked matches cerberus output
 {
 	self clearlookat();
 	self.bot.threat.entity = undefined;
 }
 
-bot_has_enemy()
+bot_has_enemy() //checked changed at own discretion
 {
 	if ( isDefined( self.bot.threat.entity ) )
 	{
@@ -480,7 +479,7 @@ bot_has_enemy()
 	return 0;
 }
 
-threat_dead()
+threat_dead() //checked changed at own discretion
 {
 	if ( self bot_has_enemy() )
 	{
@@ -494,7 +493,7 @@ threat_dead()
 	return 0;
 }
 
-threat_is_player()
+threat_is_player() //checked changed at own discretion
 {
 	ent = self.bot.threat.entity;
 	if ( isDefined( ent ) && isplayer( ent ) )
