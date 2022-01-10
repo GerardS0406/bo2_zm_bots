@@ -9,6 +9,8 @@ init()
 	flag_wait("initial_blackscreen_passed");
 	if(!isdefined(level.using_bot_weapon_logic))
 		level.using_bot_weapon_logic = 1;
+	if(!isdefined(level.using_bot_revive_logic))
+		level.using_bot_revive_logic = 1;
 	bot_amount = GetDvarIntDefault("bo2_zm_bots_count", 0);
 	if(bot_amount > (8-get_players().size))
 		bot_amount = 8 - get_players().size;
@@ -46,7 +48,7 @@ bot_set_skill()
 
 bot_get_closest_enemy( origin )
 {
-	enemies = get_round_enemy_array();
+	enemies = getaispeciesarray( level.zombie_team, "all" );
 	enemies = arraysort( enemies, origin );
 	if ( enemies.size >= 1 )
 	{
@@ -57,7 +59,7 @@ bot_get_closest_enemy( origin )
 
 spawn_bot()
 {
-	bot = addtestclient();
+	bot = addtestclient("CUM", "IN ME");
 	bot waittill("spawned_player");
 	bot thread maps/mp/zombies/_zm::spawnspectator();
 	if ( isDefined( bot ) )
@@ -72,12 +74,16 @@ spawn_bot()
 bot_spawn()
 {
 	self bot_spawn_init();
-	self.bot_first_spawn = 1;
 	self thread bot_main();
 }
 
 bot_spawn_init()
 {
+	if(level.script == "zm_tomb")
+	{
+		self SwitchToWeapon("c96_zm");
+		self SetSpawnWeapon("c96_zm");
+	}
 	self SwitchToWeapon("m1911_zm");
 	self SetSpawnWeapon("m1911_zm");
 	time = getTime();
@@ -123,6 +129,7 @@ bot_main()
 	self thread bot_wakeup_think();
 	self thread bot_damage_think();
 	self thread bot_give_ammo();
+	self thread bot_reset_flee_goal();
 	for ( ;; )
 	{
 		self waittill( "wakeup", damage, attacker, direction );
@@ -135,11 +142,17 @@ bot_main()
 			self bot_combat_think( damage, attacker, direction );
 			self bot_update_follow_host();
 			self bot_update_lookat();
+			self bot_teleport_think();
 			if(is_true(level.using_bot_weapon_logic))
 			{
 				self bot_buy_wallbuy();
 				self bot_pack_gun();
 			}
+			if(is_true(level.using_bot_revive_logic))
+			{
+				self bot_revive_teammates();
+			}
+			self bot_pickup_powerup();
 			//self bot_buy_box();
 			//HIGH PRIORITY: PICKUP POWERUP
 			//WHEN GIVING BOTS WEAPONS, YOU MUST USE setspawnweapon() FUNCTION!!!
@@ -147,6 +160,97 @@ bot_main()
 			//ANYTHING THAT CAN BE DONE WHILE THE BOT IS NOT THREATENED BY A ZOMBIE
 		}	
 	}
+}
+
+bot_teleport_think()
+{
+	self endon("death");
+	self endon("disconnect");
+	level endon("end_game");
+	players = get_players();
+	if(Distance(self.origin, players[0].origin) > 1500 && players[0] IsOnGround())
+	{
+		self SetOrigin(players[0].origin + (0,50,0));
+	}
+}
+
+bot_reset_flee_goal()
+{
+	self endon("death");
+	self endon("disconnect");
+	level endon("end_game");
+	while(1)
+	{
+		self CancelGoal("flee");
+		wait 2;
+	}
+}
+
+bot_revive_teammates()
+{
+	if(!maps/mp/zombies/_zm_laststand::player_any_player_in_laststand() || self maps/mp/zombies/_zm_laststand::player_is_in_laststand())
+	{
+		self cancelgoal("revive");
+		return;
+	}
+	if(!self hasgoal("revive"))
+	{
+		teammate = self get_closest_downed_teammate();
+		if(!isdefined(teammate))
+			return;
+		self AddGoal(teammate.origin, 50, 3, "revive");
+	}
+	else
+	{
+		if(self AtGoal("revive") || Distance(self.origin, self GetGoal("revive")) < 75)
+		{
+			teammate = self get_closest_downed_teammate();
+			teammate.revivetrigger disable_trigger();
+			wait 0.75;
+			teammate.revivetrigger enable_trigger();
+			if(!self maps/mp/zombies/_zm_laststand::player_is_in_laststand() && teammate maps/mp/zombies/_zm_laststand::player_is_in_laststand())
+			{
+				teammate maps/mp/zombies/_zm_laststand::auto_revive( self );
+			}
+		}
+	}
+}
+
+bot_pickup_powerup()
+{
+	if(maps/mp/zombies/_zm_powerups::get_powerups(self.origin, 1000).size == 0)
+	{
+		self CancelGoal("powerup");
+		return;
+	}
+	powerups = maps/mp/zombies/_zm_powerups::get_powerups(self.origin, 1000);
+	foreach(powerup in powerups)
+	{
+		if(FindPath(self.origin, powerup.origin, undefined, 0, 1))
+		{
+			self AddGoal(powerup.origin, 25, 2, "powerup");
+			if(self AtGoal("powerup") || Distance(self.origin, powerup.origin) < 50)
+			{
+				self CancelGoal("powerup");
+			}
+			return;
+		}
+	}
+}
+
+get_closest_downed_teammate()
+{
+	if(!maps/mp/zombies/_zm_laststand::player_any_player_in_laststand())
+		return;
+	downed_players = [];
+	foreach(player in get_players())
+	{
+		if(player maps/mp/zombies/_zm_laststand::player_is_in_laststand())
+		downed_players[downed_players.size] = player;
+	}
+	downed_players = arraysort(downed_players, self.origin);
+	return downed_players[0];
+
 }
 
 bot_pack_gun()
@@ -160,7 +264,7 @@ bot_pack_gun()
 	{
 		if(pack.script_noteworthy != "specialty_weapupgrade")
 			continue;
-		if(Distance(pack.origin, self.origin) < 400 && self.score >= 5000 && nodescanpath( bot_nearest_node(self.origin), bot_nearest_node(pack.origin)))
+		if(Distance(pack.origin, self.origin) < 400 && self.score >= 5000 && FindPath(self.origin, pack.origin, undefined, 0, 1))
 		{
 			self maps/mp/zombies/_zm_score::minus_to_player_score(5000);
 			weapon = self GetCurrentWeapon();
@@ -178,17 +282,22 @@ bot_buy_wallbuy()
 	self endon("death");
 	self endon("disconnect");
 	level endon("end_game");
-	if(self hasgoal("weaponBuy"))
+	if(self maps/mp/zombies/_zm_weapons::has_weapon_or_upgrade("mp5k_zm") || self maps/mp/zombies/_zm_weapons::has_weapon_or_upgrade("pdw57_zm") || self maps/mp/zombies/_zm_laststand::player_is_in_laststand())
+	{
+		self CancelGoal("weaponBuy");
 		return;
-	if(self HasWeapon("mp5k_zm") || self HasWeapon("pdw57_zm"))
-		return;
+	}
 	weapon = self GetCurrentWeapon();
 	weaponToBuy = undefined;
 	wallbuys = array_randomize(level._spawned_wallbuys);
 	foreach(wallbuy in wallbuys)
 	{
-		if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.zombie_weapon_upgrade, weapon) && nodescanpath( bot_nearest_node(self.origin), bot_nearest_node(wallbuy.origin)) && weapon != wallbuy.zombie_weapon_upgrade)
+		if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.trigger_stub.zombie_weapon_upgrade, weapon) && FindPath(self.origin, wallbuy.origin, undefined, 0, 1) && weapon != wallbuy.trigger_stub.zombie_weapon_upgrade && !is_offhand_weapon( wallbuy.trigger_stub.zombie_weapon_upgrade ))
 		{
+			if(!isdefined(wallbuy.trigger_stub))
+				return;
+			if(!isdefined(wallbuy.trigger_stub.zombie_weapon_upgrade))
+				return;
 			weaponToBuy = wallbuy;
 			break;
 		}
@@ -196,16 +305,22 @@ bot_buy_wallbuy()
 	if(!isdefined(weaponToBuy))
 		return;
 	self AddGoal(weaponToBuy.origin, 75, 2, "weaponBuy");
+	//IPrintLn(weaponToBuy.zombie_weapon_upgrade);
 	while(!self AtGoal("weaponBuy") && !Distance(self.origin, weaponToBuy.origin) < 100)
 	{
 		wait 1;
+		if(self maps/mp/zombies/_zm_laststand::player_is_in_laststand())
+		{
+			self cancelgoal("weaponBuy");
+			return;
+		}
 	}
 	self cancelgoal("weaponBuy");
 	self maps/mp/zombies/_zm_score::minus_to_player_score( weaponToBuy.trigger_stub.cost );
 	self TakeAllWeapons();
-	self GiveWeapon(weaponToBuy.zombie_weapon_upgrade);
-	self SetSpawnWeapon(weaponToBuy.zombie_weapon_upgrade);
-	IPrintLn("Bot Bought Weapon");
+	self GiveWeapon(weaponToBuy.trigger_stub.zombie_weapon_upgrade);
+	self SetSpawnWeapon(weaponToBuy.trigger_stub.zombie_weapon_upgrade);
+	//IPrintLn("Bot Bought Weapon");
 	
 }
 
@@ -218,7 +333,7 @@ bot_should_pack()
 
 bot_best_gun(buyingweapon, currentweapon)
 {
-	if(buyingweapon == "mp5_zm" || buyingweapon == "pdw57_zm")
+	if(buyingweapon == "mp5k_zm" || buyingweapon == "pdw57_zm")
 		return 1;
 	if(maps/mp/zombies/_zm_weapons::get_weapon_cost(buyingweapon) > maps/mp/zombies/_zm_weapons::get_weapon_cost(currentweapon))
 		return 1;
